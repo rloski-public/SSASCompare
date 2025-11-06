@@ -24,20 +24,20 @@
 .PARAMETER SourceTableName
     Optional name for the source result table.
 
-.PARAMETER TestServer
+.PARAMETER TargetServer
     The SSAS server to compare against the source.
 
-.PARAMETER TestDatabase
-    Optional name for the test database. Defaults to SourceDatabase.
+.PARAMETER TargetDatabase
+    Optional name for the target database. Defaults to SourceDatabase.
 
-.PARAMETER TestTableName
-    Optional name for the test result table.
+.PARAMETER TargetTableName
+    Optional name for the target result table.
 
 .PARAMETER DetailedCount
     Limits the number of differing rows returned.
 
 .EXAMPLE
-    Compare-DAXQuery -FileName "query.dax" -SourceServer "ProdServer" -SourceDatabase "ModelDB" -TestServer "DevServer"
+    Compare-DAXQuery -FileName "query.dax" -SourceServer "ProdServer" -SourceDatabase "ModelDB" -TargetServer "DevServer"
 
 .INPUTS
     String
@@ -55,9 +55,9 @@
         [Parameter(Mandatory=$true)][string]$SourceServer,
         [string]$SourceDatabase,
         [string]$SourceTableName,
-        [string]$TestServer,
-        [string]$TestDatabase,
-        [string]$TestTableName,
+        [string]$TargetServer,
+        [string]$TargetDatabase,
+        [string]$TargetTableName,
         [int]$DetailedCount = 10
     )
 
@@ -65,20 +65,20 @@
 
     # Set the defaults for the test server if the values are not given
 
-    if (-not $TestServer)
+    if (-not $TargetServer)
     {
-       $TestServer = $SourceServer 
+       $TargetServer = $SourceServer 
     }
 
-    if (-not $TestDatabase)
+    if (-not $TargetDatabase)
     {
-       $TestDatabase = $SourceDatabase 
+       $TargetDatabase = $SourceDatabase 
     }
 
     
     # Verify that there is a difference between the source and test
 
-    if ($TestServer -eq $SourceServer -and $TestDatabase -eq $SourceDatabase)
+    if ($TargetServer -eq $SourceServer -and $TargetDatabase -eq $SourceDatabase)
     {
         throw "The source connection and test connections need to differ in some way."
 
@@ -119,50 +119,47 @@
         $SourceTableName = "$($SourceServer)_$($SourceDatabase)" 
     }
 
-    if (-not $TestTableName) {
-        $TestTableName = "$($TestServer)_$($TestDatabase)"
+    if (-not $TargetTableName) {
+        $TargetTableName = "$($TargetServer)_$($TargetDatabase)"
     }
 
     # Cleanup the table names
      $SourceTableName = $SourceTableName -replace '[^a-zA-Z0-9]', '_'
-     $TestTableName = $TestTableName -replace '[^a-zA-Z0-9]', '_'
+     $TargetTableName = $TargetTableName -replace '[^a-zA-Z0-9]', '_'
 
     # Make certain that the table name is different
-    if ($SourceTableName -eq $TestTableName) {
-        $TestTableName = $TestTableName + "_TEST"
+    if ($SourceTableName -eq $TargetTableName) {
+        $TargetTableName = $TargetTableName + "_TEST"
     }
 
-    # Initialize the dataset to hold all of the tables and relationships
-
-    $ds = New-Object System.Data.DataSet
 
     # Run DAX query on both servers
 
     # Load the source table
 
-    [System.Data.DataTable] $sourceResults = Invoke-DAXQuery -ServerName $SourceServer -DatabaseName $SourceDatabase -DaxQuery $DAXQuery
-    $sourceResults.TableName = $SourceTableName
-    $ds.Tables.Add($sourceResults)
+    [System.Data.DataTable] $sourceDataTable = Invoke-DAXQuery -ServerName $SourceServer -DatabaseName $SourceDatabase -DaxQuery $DAXQuery
+    $sourceDataTable.TableName = $SourceTableName
+
 
     #Load the test table 
-    [System.Data.DataTable]$testResults =  Invoke-DAXQuery -ServerName $TestServer -DatabaseName $TestDatabase -DaxQuery $DAXQuery 
-    $testResults.TableName = $TestTableName
-    $ds.Tables.Add($testResults)
+    [System.Data.DataTable]$targetDataTable =  Invoke-DAXQuery -ServerName $TargetServer -DatabaseName $TargetDatabase -DaxQuery $DAXQuery 
+    $targetDataTable.TableName = $TargetTableName
+
     
     # Compare at the table level
     $TableComparison = @{}
-    $TableComparison[$SourceTableName] = [PSCustomObject]@{RowCount = $ds.Tables[$SourceTableName].Rows.Count
-                                        ColumnCount  = $ds.Tables[$SourceTableName].Columns.Count
+    $TableComparison[$SourceTableName] = [PSCustomObject]@{RowCount = $sourceDataTable.Rows.Count
+                                        ColumnCount  = $sourceDataTable.Columns.Count
                                         }
  
-    $TableComparison[$TestTableName]= [PSCustomObject]@{RowCount = $ds.Tables[$TestTableName].Rows.Count
-                                        ColumnCount  = $ds.Tables[$TestTableName].Columns.Count
+    $TableComparison[$TargetTableName]= [PSCustomObject]@{RowCount = $targetDataTable.Rows.Count
+                                        ColumnCount  = $targetDataTable.Columns.Count
                                         }
     
-    if($ds.Tables[$TestTableName].Columns.Count -ne $ds.Tables[$SourceTableName].Columns.Count) {
+    if($targetDataTable.Columns.Count -ne $sourceDataTable.Columns.Count) {
         $TableComparison["ColumnError"] = "Column counts don't match"
     }
-    if($ds.Tables[$TestTableName].Rows.Count -ne $ds.Tables[$SourceTableName].Rows.Count) {
+    if($targetDataTable.Rows.Count -ne $sourceDataTable.Rows.Count) {
         $TableComparison["RowError"] = "Row counts don't match"
     }
 
@@ -173,7 +170,7 @@
         }
         $TableComparison["MetaDataWarning"]["Empty Metadata"] = "There is no metadata.  The comparisons may be uneven."
 
-        $retValue = Compare-DAXDataTable -SourceDataTable $sourceResults -TestDataTable $testResults 
+        $retValue = Compare-DAXDataTable -SourceDataTable $sourceDataTable -TargetDataTable $targetDataTable 
         if(-not $TableComparison.ContainsKey("CompareTables")){
             $TableComparison["CompareTables"] = @{}
         }
@@ -183,11 +180,11 @@
         for($i = 0; $i -lt $queryMetadata.Count; $i++){
             $errorColumns = @()
             foreach($column in $queryMetadata[$i].KeyColumns) {
-                if(-not $ds.Tables[$SourceTableName].Columns.Contains($column)){
+                if(-not $sourceDataTable.Columns.Contains($column)){
                     $errorColumns += "Column $column not found in $SourceTableName"
                 }
-                if(-not $ds.Tables[$TestTableName].Columns.Contains($column)){
-                    $errorColumns += "Column $column not found in $TestTableName"
+                if(-not $targetDataTable.Columns.Contains($column)){
+                    $errorColumns += "Column $column not found in $TargetTableName"
                 }
 
             }
@@ -209,7 +206,7 @@
             }
             else {
             # Compare the results
-            $retValue = Compare-DAXQueryDataTable -SourceDataTable $sourceResults -TestDataTable $testResults `
+            $retValue = Compare-DAXQueryDataTable -SourceDataTable $sourceDataTable -TargetDataTable $targetDataTable `
                 -Filter $queryMetadata[$i].Filter -KeyColumns $queryMetadata[$i].KeyColumns
 
             if(-not $TableComparison.ContainsKey("CompareTables")){
@@ -227,9 +224,9 @@
         SourceServer   = $SourceServer
         SourceDatabase = $SourceDatabase
         SourceTableName = $SourceTableName
-        TestServer     = $TestServer
-        TestDatabase = $TestDatabase
-        TestTableName = $TestTableName
+        TargetServer     = $TargetServer
+        TargetDatabase = $TargetDatabase
+        TargetTableName = $TargetTableName
         TableComparison = $TableComparison
         Metadata       = $queryMetadata
 

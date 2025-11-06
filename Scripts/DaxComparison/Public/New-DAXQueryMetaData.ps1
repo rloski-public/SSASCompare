@@ -136,7 +136,7 @@ if(($FilterSets|Where-Object Name -eq "TotalSet").Count -eq 0){
 # Create the object for the detail set.  This will create DataView where all of the booleans are false
 
 if(($FilterSets|Where-Object Name -eq "DetailSet").Count -eq 0){
-    $keyColumnArray =  $Columns|Where-Object ColumnOrder -lt $firstBoolean|Sort-Object ColumnOrder |Select -ExpandProperty ColumnName
+    [array]$keyColumnArray =  $Columns|Where-Object ColumnOrder -lt $firstBoolean|Sort-Object ColumnOrder |Select -ExpandProperty ColumnName
 
     $FilterSets += [PSCustomObject]@{
     Name="DetailSet"
