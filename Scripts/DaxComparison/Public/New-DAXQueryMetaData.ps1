@@ -120,14 +120,28 @@ else {
     $FilterSets = @()
 }
 
+# If the last column is the column index, then add it as the filter for the total and 
+# as part of the filter for the detail
+
+
+[array]$columnKeyColumnArray =  $Columns|Where-Object ColumnName -eq "[ColumnIndex]"|Select -ExpandProperty ColumnName
+
 # If there is no total set, then create it
 # Create the object for the total set.  This will create DataView where all of the booleans are true
 
 if(($FilterSets|Where-Object Name -eq "TotalSet").Count -eq 0){
-    $FilterSets += [PSCustomObject]@{
+    $totalSetObject = [PSCustomObject]@{
     Name="TotalSet"
     Filter= ($Booleans|foreach {$_.FilterName + " = true"}) -join " and "
     }
+
+    # Add the columnKeyColumnArray
+    if ($columnKeyColumnArray) {
+        $totalSetObject | Add-Member -Type NoteProperty -Name "KeyColumns" -Value  $columnKeyColumnArray
+    }
+    
+    # Add the totalSetObject to the $FilterSets
+    $FilterSets += $totalSetObject
 
 }
 
@@ -137,6 +151,7 @@ if(($FilterSets|Where-Object Name -eq "TotalSet").Count -eq 0){
 
 if(($FilterSets|Where-Object Name -eq "DetailSet").Count -eq 0){
     [array]$keyColumnArray =  $Columns|Where-Object ColumnOrder -lt $firstBoolean|Sort-Object ColumnOrder |Select -ExpandProperty ColumnName
+    $keyColumnArray +=$columnKeyColumnArray
 
     $FilterSets += [PSCustomObject]@{
     Name="DetailSet"

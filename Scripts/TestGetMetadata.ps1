@@ -1,7 +1,7 @@
 ﻿# Define the connection details and DAX query
 cls
 
-$filename =   "Aging Inventory.Rev.20240923"
+$filename =   "Month to Date Sales Test.Year_rep"
 $fullFilename = $path + $filename + ".dax"
 
 $DaxQuery = Get-Content -Path $fullFilename -Raw

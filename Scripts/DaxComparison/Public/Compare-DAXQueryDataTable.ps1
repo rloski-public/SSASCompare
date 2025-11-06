@@ -179,7 +179,7 @@
 
  
  			# The columns must all exist in both tables before adding relationships
-            if($columnsAllExists -and  $targetRowCount -gt  0 -and $sourceRowCount -gt 0 -and -not $sourceError -and -not $targetError) {
+            if( $targetRowCount -gt  0 -and $sourceRowCount -gt 0 -and -not $sourceError -and -not $targetError) {
                 $parentcols = @()
                 $childcols = @()
 
@@ -190,25 +190,37 @@
                 }
                 # Create primary keys
 
-                # These are the re
-                $rel = New-Object System.Data.DataRelation "DSComparison_SourceTest", $parentcols, $childcols
-                $ds.Relations.Add($rel)    
-                $rel = New-Object System.Data.DataRelation "DSComparison_TestSource", $childcols, $parentcols
-                $ds.Relations.Add($rel)
+                # These are the relationships
+                try {
+                    $rel = New-Object System.Data.DataRelation "DSComparison_SourceTest", $parentcols, $childcols
+                    $ds.Relations.Add($rel)    
+                    $sourceRel = $ds.Relations["DSComparison_SourceTest"]
+                }
+                catch {
+                    $mainErrors += "Error adding source relationship: " + $_.Exception.Message 
+                    $sourceError  = $true 
+                }
+                try {
+                    $rel = New-Object System.Data.DataRelation "DSComparison_TargetSource", $childcols, $parentcols
+                    $ds.Relations.Add($rel)
+                    $targetRel = $ds.Relations["DSComparison_TargetSource"]
+                }
+                catch {
+                    $mainErrors += "Error adding target relationship: " + $_.Exception.Message 
+                    $targetError  = $true 
+                }
 
 
-                $sourceRel = $ds.Relations["DSComparison_SourceTest"]
-                $testRel = $ds.Relations["DSComparison_TestSource"]
+
 
                 }
             } # End of preparation of the relations
             
 
-						# The following is for when there are valid relationships
-						# KeyColumns must have been passed in
-						# All of the KeyColumns are in both source and target
-						# There were no errors loading source and target
-            if($KeyColumns -and  $targetRowCount -gt  0 -and $sourceRowCount -gt 0 -and $columnsAllExists -and -not $sourceError -and -not $targetError) { 
+			# The following is for when there are valid relationships
+			# All of the KeyColumns are in both source and target
+			# There were no errors loading source and target
+            if($KeyColumns -and $targetRowCount -gt  0 -and $sourceRowCount -gt 0 -and -not $sourceError -and -not $targetError) { 
             # Walk through each of the rows in the source
             for($i = 0; $i -lt $ds.Tables[$SourceTableName].Rows.Count;$i++){
                 $rowColumnErrors = @() # This is where each row error goes
@@ -262,10 +274,10 @@
             # duplicate
             for($i = 0; $i -lt $ds.Tables[$TargetTableName].Rows.Count;$i++){
                 $row = $ds.Tables[$TargetTableName].Rows[$i]
-                $childRows = $row.GetChildRows("DSComparison_TestSource")
+                $childRows = $row.GetChildRows("DSComparison_TargetSource")
                  # Create key for the row
                 $keyvalues = ""
-                foreach($keycol in $testRel.ParentColumns) {
+                foreach($keycol in $targetRel.ParentColumns) {
                     $keycolname = $keycol.ColumnName
                     $keyvalue = $row[$keycolname]
                     $keyvalues += "$keycolname : $keyvalue ;"
