@@ -12,10 +12,10 @@ foreach($fileitem in $filestoProcess) {
 
     $DaxQuery = Get-Content -Path $fullFilename -Raw
   
-
+    
     $retComparison = Compare-DAXQuery -DaxQuery $DaxQuery  `
     -SourceServer $servers[0].Server -SourceTableName $servers[0].TableName `
-    -TestServer $servers[1].Server -TestTableName $servers[1].TableName  
+    -TargetServer $servers[1].Server -TargetTableName $servers[1].TableName  
  
  
     $newfullFileName = $path + $shortFilename + ".json"
