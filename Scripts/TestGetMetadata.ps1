@@ -1,19 +1,19 @@
 ﻿# Define the connection details and DAX query
 cls
 
-$filename =   "MainPage"
+$filename =   "Month to Date Sales Test.Year_rep"
 $fullFilename = $path + $filename + ".dax"
 
 $DaxQuery = Get-Content -Path $fullFilename -Raw
  
 
 $ret = New-DAXQueryMetaData -DaxQuery $DaxQuery  `
-    -ServerName $servers[0].Server  -ReportName $filename -KeyColumnCount 5
+    -ServerName $servers[1].Server -DatabaseName $servers[1].Database   -ReportName $filename -KeyColumnCount 5
  
  
 $newString = Add-DAXQueryMetaData -DaxQuery $DaxQuery -QueryMetaData $ret -Replace 
 
-$newfileName = $path + $filename + ".test.dax"
+$newfileName = $path + $filename + ".metadata.dax"
 $newString|Out-File -FilePath $newfileName 
 
 
