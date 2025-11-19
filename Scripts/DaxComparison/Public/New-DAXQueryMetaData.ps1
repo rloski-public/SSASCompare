@@ -151,7 +151,11 @@ if(($FilterSets|Where-Object Name -eq "TotalSet").Count -eq 0){
 
 if(($FilterSets|Where-Object Name -eq "DetailSet").Count -eq 0){
     [array]$keyColumnArray =  $Columns|Where-Object ColumnOrder -lt $firstBoolean|Sort-Object ColumnOrder |Select -ExpandProperty ColumnName
-    $keyColumnArray +=$columnKeyColumnArray
+
+        
+    if($columnKeyColumnArray -and $columnKeyColumnArray[0] -ne $null) {
+        $keyColumnArray +=$columnKeyColumnArray
+        }
 
     $FilterSets += [PSCustomObject]@{
     Name="DetailSet"

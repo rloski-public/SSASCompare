@@ -13,7 +13,7 @@ foreach($fileitem in $filestoProcess) {
 
     # Read the metadata from the file, using the second server as the model
     $ret = New-DAXQueryMetaData -DaxQuery $DaxQuery  `
-        -ServerName $servers[1].Server -DatabaseName $servers[1].Database  `
+        -ServerName $servers[0].Server `
         -ReportName $filename -KeyColumnCount 5
  
     # Create a new string that merges metadata and the existing query
