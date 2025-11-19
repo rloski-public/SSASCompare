@@ -48,16 +48,22 @@
         # Counters for the status of records found
         $targetMatches = 0
         $sourceMatches = 0
-        $duplicateTestMatches = 0
+        $duplicateTargetMatches = 0
         $duplicateSourceMatches = 0
         $missingTargetMatches = 0
         $missingSourceMatches = 0
         $sourceRowCount = -1
         $targetRowCount = -1
-        $sourceError = $false
+
+        # These are used to mark cases where the filter failed or the
+        # table did not transfer
+        $sourceError = $false 
         $targetError = $false 
 
-
+        # This identifies cases where the relationship fails.  This indicates
+        # that comparing rows will not work.
+        $sourceKeyError = $false
+        $targetKeyError = $false 
 
 
         # This is a new dataset to hold the tables being tested
@@ -172,7 +178,7 @@
 
 
         if($KeyColumns) {
-        # Build the relations:  source to test, then test to source
+        # Build the relations:  source to target, then test to source
         # test to source is used only if the equivilent source to test does not have
         # a match
 
@@ -183,7 +189,7 @@
                 $parentcols = @()
                 $childcols = @()
 
-                # Get parallel columns from the source table and the test table
+                # Get parallel columns from the source table and the Target table
                 foreach ($colitem in $KeyColumns){
                   $parentcols += $ds.Tables[$SourceTableName].Columns[$colitem]
                   $childcols += $ds.Tables[$TargetTableName].Columns[$colitem]
@@ -192,13 +198,13 @@
 
                 # These are the relationships
                 try {
-                    $rel = New-Object System.Data.DataRelation "DSComparison_SourceTest", $parentcols, $childcols
+                    $rel = New-Object System.Data.DataRelation "DSComparison_SourceTarget", $parentcols, $childcols
                     $ds.Relations.Add($rel)    
-                    $sourceRel = $ds.Relations["DSComparison_SourceTest"]
+                    $sourceRel = $ds.Relations["DSComparison_SourceTarget"]
                 }
                 catch {
                     $mainErrors += "Error adding source relationship: " + $_.Exception.Message 
-                    $sourceError  = $true 
+                    $sourceKeyError  = $true 
                 }
                 try {
                     $rel = New-Object System.Data.DataRelation "DSComparison_TargetSource", $childcols, $parentcols
@@ -207,7 +213,7 @@
                 }
                 catch {
                     $mainErrors += "Error adding target relationship: " + $_.Exception.Message 
-                    $targetError  = $true 
+                    $targetKeyError  = $true 
                 }
 
 
@@ -221,7 +227,11 @@
 			# All of the KeyColumns are in both source and target
 			# There were no errors loading source and target
             if($KeyColumns -and $targetRowCount -gt  0 -and $sourceRowCount -gt 0 -and -not $sourceError -and -not $targetError) { 
+            
+            # Walk through the Source rows, only if there is no target key error
+            if(-not $sourceKeyError ) {
             # Walk through each of the rows in the source
+
             for($i = 0; $i -lt $ds.Tables[$SourceTableName].Rows.Count;$i++){
                 $rowColumnErrors = @() # This is where each row error goes
                 $row = $ds.Tables[$SourceTableName].Rows[$i]
@@ -238,17 +248,17 @@
                     }
 								# This tests for missing child rows
                 if($childRows.Count -lt 1) 
-                    {$missingTestMatches+=1
+                    {$missingTargetMatches+=1
                     $rowErrors["RowErrorCount"] +=1
-                    $rowErrors["SourceRowError"][$keyvalues] = "Error:  Missing Test Child"
+                    $rowErrors["SourceRowError"][$keyvalues] = "Error:  Missing Target Child"
                     }
                 elseif($childRows.Count -gt 1) 
-                    {$duplicateTestMatches+=1
+                    {$duplicateTargetMatches+=1
                     $rowErrors["RowErrorCount"] +=1
-                    $rowErrors["SourceRowError"][$keyvalues] = "Error:  Duplicate Test Child"
+                    $rowErrors["SourceRowError"][$keyvalues] = "Error:  Duplicate Target Child"
                     }
                 else  {
-                	$testMatches +=1
+                	$TargetMatches +=1
                 	
                 	# Test the values if there is exactly one row for the key
                   foreach($column in $ds.Tables[$SourceTableName].Columns) {
@@ -257,7 +267,7 @@
                     $childvalue = $childRows[0][$columnName] 
                     if($parentvalue -ne $childvalue) {
                         $rowErrors["RowErrorCount"] +=1
-                        $rowColumnErrors += "Mismatch on column $columnName :  Source $parentValue; Test:  $childvalue"
+                        $rowColumnErrors += "Mismatch on column $columnName :  Source $parentValue; Target:  $childvalue"
                         }                    
                     }
                     if($rowColumnErrors.Count -gt 0){
@@ -265,9 +275,12 @@
                     }
                 }
 
-
+                }
 
             }
+
+            # Only do this if the target key error is false
+            if(-not $targetKeyError){
             
             # Walk through the values in the target table, looking for mismatched
             # child rows, which will indicate that there is an extra row or some
@@ -285,19 +298,41 @@
                 if($childRows.Count -lt 1) 
                     {$missingSourceMatches+=1
                     $rowErrors["RowErrorCount"] +=1
-                    $rowErrors["TestRowError"][$keyvalues] = "Error:  Missing Source Child" 
+                    $rowErrors["TargetRowError"][$keyvalues] = "Error:  Missing Source Child" 
                     }
                 elseif($childRows.Count -gt 1) 
                     {$duplicateSourceMatches+=1
                     $rowErrors["RowErrorCount"] +=1
-                    $rowErrors["TestRowError"][$keyvalues] = "Error:  Duplicate Source Child" 
+                    $rowErrors["TargetRowError"][$keyvalues] = "Error:  Duplicate Source Child" 
                     }
 
-                else  {$SourceMatches +=1}
+                else  {$SourceMatches +=1
                 
-
+                	# Test the column values only if the source key error was true
+                    # if it is false, then it would have compared values fusing the 
+                    # source relationship
+                  if($sourceKeyError){
+                  foreach($column in $ds.Tables[$SourceTableName].Columns) {
+                    $columnName = $column.ColumnName
+                    $parentvalue = $row[$columnName]
+                    $childvalue = $childRows[0][$columnName] 
+                    if($parentvalue -ne $childvalue) {
+                        $rowErrors["RowErrorCount"] +=1
+                        $rowColumnErrors += "Mismatch on column $columnName :  Target $parentValue; Source:  $childvalue"
+                        }                    
+                    }
+                    if($rowColumnErrors.Count -gt 0){
+                        try {
+                        $rowErrors["SourceRowColumnErrors"][$keyvalues] = $rowColumnErrors
+                        }
+                        catch {
+                        $mainErrors += "Error working with sourcerowcolumnerrors from target for key ###$keyvalues###: " + $_.Exception.Message 
+                        }
+                   }
+                }
+                }
             }
-
+          }
 
         }
         elseif (-not $sourceError -and -not $targetError -and $sourceRowCount -eq 1 -and $targetRowCount -eq 1) {
@@ -311,7 +346,7 @@
                     $childvalue = $ds.Tables[$TargetTableName].Rows[0][$columnName]
                     if($parentvalue -ne $childvalue) {
                         $rowErrors["RowErrorCount"] +=1
-                        $rowColumnErrors += "Mismatch on column $columnName :  Source $parentValue; Test:  $childvalue"
+                        $rowColumnErrors += "Mismatch on column $columnName :  Source $parentValue; Target:  $childvalue"
                         }                    
                     }
                     if($rowColumnErrors.Count -gt 0){
@@ -331,13 +366,13 @@
             Filter = $Filter
             KeyColumns = $KeyColumns
             SourceRowCount = $sourceRowCount
-            SourceTestMatches = $testMatches
-            SourceTestDuplicates = $duplicateTestMatches
-            SourceTestMissing = $missingTestMatches
-            TestRowCount = $targetRowCount
-            TestSourceMatches = $sourceMatches
-            TestSourceDuplicates = $duplicateSourceMatches
-            TestSourceMissing = $missingSourceMatches
+            SourceTargetMatches = $TargetMatches
+            SourceTargetDuplicates = $duplicateTargetMatches
+            SourceTargetMissing = $missingTargetMatches
+            TargetRowCount = $targetRowCount
+            TargetSourceMatches = $sourceMatches
+            TargetSourceDuplicates = $duplicateSourceMatches
+            TargetSourceMissing = $missingSourceMatches
             RowErrors = $rowErrors 
             DatasetErrors = $mainErrors
         }

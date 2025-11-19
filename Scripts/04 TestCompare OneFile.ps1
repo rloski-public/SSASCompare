@@ -1,20 +1,17 @@
 ﻿# Define the connection details and DAX query
-cls
-
-$filename =   "Month to Date Sales Test.Year_rep.metadata"
+cls 
+$shortFilename = "Bikes"
+$filename =   "$shortFileName.metadata"
 $fullFilename = $path + $filename + ".dax"
-
  
-    $shortFilename = $filename.Substring(0,$filename.Length - $metadatanamelen)
 
-    Write-Output "Processing $filename to $shortFileName"
+
+    Write-Output "Processing $filename "
     
 
 
     $DaxQuery = Get-Content -Path $fullFilename -Raw
 
-    $tbl = Invoke-DAXQuery -DaxQuery $DaxQuery  `
-    -ServerName $servers[0].Server -DatabaseName $servers[0].Database   
   
     
     $retComparison = Compare-DAXQuery -DaxQuery $DaxQuery  `
