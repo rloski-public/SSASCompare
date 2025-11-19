@@ -287,7 +287,7 @@
             # duplicate
             for($i = 0; $i -lt $ds.Tables[$TargetTableName].Rows.Count;$i++){
                 $row = $ds.Tables[$TargetTableName].Rows[$i]
-                $childRows = $row.GetChildRows("DSComparison_TargetSource")
+                $childRows = $row.GetChildRows($targetRel)
                  # Create key for the row
                 $keyvalues = ""
                 foreach($keycol in $targetRel.ParentColumns) {
@@ -312,7 +312,7 @@
                     # if it is false, then it would have compared values fusing the 
                     # source relationship
                   if($sourceKeyError){
-                  foreach($column in $ds.Tables[$SourceTableName].Columns) {
+                  foreach($column in $ds.Tables[$TargetTableName].Columns) {
                     $columnName = $column.ColumnName
                     $parentvalue = $row[$columnName]
                     $childvalue = $childRows[0][$columnName] 

@@ -9,12 +9,12 @@ Find-PBIPorts
 
 $servers =  @(
  [PSCustomObject] @{Name="Source" # 3
-    Server = "localhost:54814"
+    Server = "localhost:58862"
 #    Database = "SourceDatabase"
     TableName = "Source Table"
 
 },[PSCustomObject] @{Name="Target" #2
-    Server = "localhost:49220"
+    Server = "localhost:60762"
 #    Database = "TargetDatabas"
     TableName = "Target Table"
 
@@ -26,7 +26,7 @@ $servers =  @(
 cls
 
 $filename =   "metadata"
-$fullFilename = $path + $filename + ".dax"
+$fullFilename = $path + "MetaData\" + $filename + ".dax"
 
 $DaxQuery = Get-Content -Path $fullFilename -Raw
 
