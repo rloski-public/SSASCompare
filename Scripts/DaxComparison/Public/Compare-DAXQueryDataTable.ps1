@@ -306,7 +306,8 @@
                     $rowErrors["TargetRowError"][$keyvalues] = "Error:  Duplicate Source Child" 
                     }
 
-                else  {$SourceMatches +=1
+                else  {
+                    $SourceMatches +=1
                 
                 	# Test the column values only if the source key error was true
                     # if it is false, then it would have compared values fusing the 
